@@ -444,6 +444,9 @@ body[data-route="cat"] .dialogue { background: linear-gradient(151deg, var(--pan
 .game-modal { color: #302039; }
 .game-modal .modal-rule strong { color: #5f376b; }
 .replay { white-space: pre-line; line-height: 1.85; }
+.replay-entry + .replay-entry { border-top: 1px solid #ded1e0; margin-top: 12px; padding-top: 12px; }
+.replay-entry strong { display: block; color: #5f376b; font-size: 13px; }
+.replay-entry .replay { margin: 3px 0 0; }
 
 @media (max-width: 960px) {
   .game-layout { grid-template-columns: minmax(0, 1.45fr) minmax(285px, 1fr); gap: 12px; }
@@ -581,7 +584,7 @@ function collect(items, id) {
   return id && !items.includes(id) ? [...items, id] : items;
 }
 
-function makeStory({ chapters, endings, memories, letters, scenes, choiceValues }) {
+function makeStory({ chapters, endings, memories, letters, scenes, choiceValues, dialogue = {} }) {
   function restore(value) {
     const saved = value && typeof value === "object" ? value : {};
     const node = typeof saved.node === "string" && Object.hasOwn(scenes, saved.node) ? saved.node : "arrive";
@@ -591,24 +594,42 @@ function makeStory({ chapters, endings, memories, letters, scenes, choiceValues 
     const replies = Object.fromEntries(Object.entries(letters)
       .filter(([id, letter]) => letter.replies && Object.hasOwn(letter.replies, saved.replies?.[id]))
       .map(([id]) => [id, saved.replies[id]]));
-    return {
+    const state = {
       node, choices, replies, unlocked: knownItems(saved.unlocked, endings),
       memories: knownItems(saved.memories, memories), letters: knownItems(saved.letters, letters),
     };
+    const count = dialogueFor(state).length;
+    const beat = Number.isInteger(saved.beat) && saved.beat >= 0 && saved.beat < count ? saved.beat : 0;
+    return { ...state, beat };
+  }
+
+  function dialogueFor(state) {
+    const scene = scenes[state.node];
+    const authored = dialogue[state.node];
+    const beats = typeof authored === "function" ? authored(state) : authored;
+    if (beats) return beats.map(([speaker, line]) => ({ speaker, line }));
+    const line = scene.letter ? letters[scene.letter].text : scene.line;
+    return [{ speaker: scene.speaker, line: typeof line === "function" ? line(state) : line }];
   }
 
   function sceneFor(state) {
     const scene = scenes[state.node];
-    const line = scene.letter ? letters[scene.letter].text : scene.line;
-    return { ...scene, line: typeof line === "function" ? line(state) : line };
+    const beats = dialogueFor(state);
+    const index = state.beat ?? 0;
+    const actions = index < beats.length - 1 ? [{ label: "继续" }] : scene.actions;
+    return { ...scene, ...beats[index], actions };
   }
 
   function restart(state) {
-    return { ...state, node: "arrive", choices: {} };
+    return { ...state, node: "arrive", choices: {}, beat: 0 };
   }
 
   function choose(state, index) {
     const current = scenes[state.node];
+    const beat = state.beat ?? 0;
+    if (beat < dialogueFor(state).length - 1) {
+      return index === 0 ? { ...state, beat: beat + 1 } : state;
+    }
     const action = current.actions[index];
     if (!action) return state;
     if (action.next === "arrive") return restart(state);
@@ -618,13 +639,393 @@ function makeStory({ chapters, endings, memories, letters, scenes, choiceValues 
       ? { ...state.replies, [current.letter]: action.choice[1] } : state.replies;
     const next = scenes[node];
     return {
-      node, choices, replies, unlocked: collect(state.unlocked, next.ending),
+      node, choices, replies, beat: 0, unlocked: collect(state.unlocked, next.ending),
       memories: collect(state.memories, next.memory), letters: collect(state.letters, next.letter),
     };
   }
 
-  return { chapters, endings, memories, letters, restore, sceneFor, restart, choose };
+  return { chapters, endings, memories, letters, restore, sceneFor, restart, choose, dialogueFor };
 }
+
+const narrator = "旁白";
+const player = "你";
+const bao = "林小包";
+const cat = "林小猫";
+const owner = "失主";
+
+const baoDialogue = {
+  arrive: [
+    [narrator, "你把最后一段话删掉，又原样打回去。右侧的窗口忽然挪开了一格。缝底亮着一盏灯，玻璃上贴着一张歪歪斜斜的「营业」。"],
+    [narrator, "隔着起雾的玻璃，你看见一个人抱着蛋糕打盹。门把刚响，她就把盘子扶正了。"],
+  ],
+  hello: [
+    [bao, "门没锁。你要坐的话，椅子在门边。"],
+    [player, "你刚才睡着了？"],
+    [bao, "听见脚步了。我在想，你在门口站了这么久，会先问我几点打烊，还是先问蛋糕甜不甜。"],
+    [narrator, "她把纸托朝自己收了半寸，又慢慢转向你。最大的一颗蓝莓正冲着你。"],
+    [bao, "现在还来得及坐一会儿。要赶回去的话，我也能给你包起来。"],
+  ],
+  "first-sit": [
+    [narrator, "你坐下，矮椅脚在地上轻轻一响。她把柜台后那张高椅拉出来，离你隔着半臂。"],
+    [bao, "坐过的人都留一颗莓。今晚这颗是你的，放左边。"],
+    [player, "你记得每一颗是谁的？"],
+    [bao, "人多了记不准。今晚左边只有你，记得住。"],
+    [narrator, "她切蛋糕时下手偏了一点，先把较大的那块推给你。你看向她，她已经低头把叉子摆好。"],
+  ],
+  "first-wrap": [
+    [narrator, "她把牛皮纸角压了两遍，把叉子从袋口抽出来，塞到盒子侧边。"],
+    [bao, "现在能单手拿了。你另一只手还能推门。"],
+    [player, "你看出我赶时间了？"],
+    [bao, "你进来以后一直没把手从门把上放下来。"],
+    [narrator, "她把纸包递给你。你回头时才看见她嘴角沾了一点蓝莓酱。她循着你的视线摸了一下，耳尖立刻红了。"],
+    [bao, "下次时间够的话，坐着吃。刚切的更好吃。"],
+  ],
+  return: ({ choices }) => [
+    choices.first === "sit"
+      ? [bao, "你来了。昨晚那块是不是太大？你吃到最后，叉子都快握不稳了。"]
+      : [bao, "你连纸托都带回来了。你走得急，我还以为那块蛋糕会一直放到早上。"],
+    [narrator, "你顺着她的目光看向矮椅子。椅面上压着一张纸，正面写着「有人」，背面留白。"],
+  ],
+  reserved: [
+    [bao, "昨晚有个熟客吃到一半，说回去拿把伞。我把他那份包了，他没再回来。"],
+    [player, "他跟你约了今晚？"],
+    [bao, "他没说哪天。我怕他回来时椅子被坐了。"],
+    [narrator, "她把纸条捏起来，看了看背面，笔尖悬在纸上。"],
+    [bao, "你要是想坐，我就把它翻过来。等人到了，我们再问他想怎么吃。"],
+  ],
+  "second-share": [
+    [narrator, "她把纸翻过来，写下「进来坐」。你刚坐下，白碟里就多了一颗莓。"],
+    [player, "你那把椅子也搬过来吧。每次说话都要隔着柜台。"],
+    [narrator, "她拖来自己的高椅。椅脚挨到一起，她停了停，把椅子再往你这边挪了半寸。"],
+    [bao, "这样说话省力。你刚才想说什么？"],
+    [player, "我今天没赶着回去。"],
+    [bao, "嗯。我把切蛋糕的刀放慢一点。"],
+  ],
+  "second-wait": [
+    [narrator, "她摸了摸柜台下的纸包，确定标签没掉，才出来和你并排站着。"],
+    [player, "你可以坐。这里有我看着。"],
+    [bao, "我也想站这边。门一开，我能先看到你。"],
+    [narrator, "玻璃上的雾散开一小块，你看见她说完才垂下眼睛。那人最终没来。你们在门边把一段话说完了，谁都没再去看椅子。"],
+  ],
+  "her-chair": [
+    [bao, "这把椅子我还没坐过。它是给来店里的人的。"],
+    [player, "你想坐吗？"],
+    [narrator, "她扶着椅背，抬眼看了一下柜台。那只小盘子洗过很多次，瓷面亮得能照见灯。"],
+    [bao, "想过。每次要坐了，就觉得应该先切完蛋糕。"],
+    [bao, "今晚只剩我们两个。那块蓝莓最多的，我还没想好给谁。"],
+  ],
+  "third-invite": [
+    [narrator, "她慢慢坐下。矮椅比想的还低，她把脚往里收了收，腾出一点位置。"],
+    [bao, "原来坐这儿，能看见门外的灯。你每天都从这个角度看我？"],
+    [player, "还能看见你每次都把最大的那块往外推。"],
+    [narrator, "她盯着你的袖口笑了两声，把白碟递过来。手指还扣着碟边。"],
+    [bao, "那今晚这颗，你替我放。"],
+  ],
+  "third-door": [
+    [narrator, "她把纸包折到一半，压着纸角想了会儿，又把它摊回去。"],
+    [bao, "带走也行。可我每次帮别人包，都会说给你留了一颗。轮到自己，我还没说过这句。"],
+    [player, "我们在门边吃。你可以先给自己留。"],
+    [narrator, "她坐到门边，把白碟递给你。碟底在她膝盖上轻轻一响。"],
+    [bao, "那你帮我放。就放我看得见的那一角。"],
+  ],
+  "berry-placed": [
+    [narrator, "蓝莓落到空着的那一角，果皮闪了一下。她把小盘子拉到自己面前，刀尖在莓果旁边停住。"],
+    [bao, "这颗是我的。说出来好像有点奇怪。"],
+    [player, "你想从哪里切？"],
+    [bao, "就从这颗旁边。给我留大一点。"],
+    [narrator, "她切完自己的那块，才给你递叉子。两块大小差不多，她来回看了一眼，满意地点了头。"],
+  ],
+  goodnight: [
+    [narrator, "最后一扇窗合上了。门牌暗下去。她伸手要拧柜台的灯，又收回来，转身把两只杯子排到一起。"],
+    [bao, "你吃了三晚。我还不知道你最喜欢哪一口。"],
+    [player, "第三晚。有人终于舍得给自己切一块。"],
+    [narrator, "她笑了一下。门口的影子已经缩到门槛边，她却把手搭在桌沿，像是还有件事没问完。"],
+    [bao, "你明晚还来吗？"],
+  ],
+  "ending-reunion": [
+    [narrator, "她手里的纸托轻轻响了一声。她把它放稳，又抬头看你。"],
+    [bao, "那你明天早点来。蛋糕还没切的时候就来。"],
+    [player, "你想留我一起切吗？"],
+    [bao, "想。刚刚就想问了。你先别练手，明天我把刀给你。"],
+    [narrator, "她走到你身边，等你一起迈过门槛。灯在你们身后熄灭。"],
+  ],
+  "ending-seat": [
+    [narrator, "她把门边的矮椅子扶正，拿袖口把椅面擦了一遍。"],
+    [bao, "你来的时候，这儿有空就坐。哪怕只坐一会儿。"],
+    [player, "你不用一直给我留。我到了，再来问你。"],
+    [bao, "那也好。你自己来问，我就知道是你来了。"],
+    [narrator, "你推门出去。玻璃门轻响一声，她还站在椅子旁。"],
+  ],
+  "ending-rest": [
+    [narrator, "她把那只小盘子挪到自己面前。刀落下时，切出来的一块比刚才大一点。"],
+    [bao, "好。我坐这儿吃完再走。你也早点休息。"],
+    [player, "我先走了。坐着就行，不用送。"],
+    [narrator, "她握着勺子朝你点头。你走到门外，门缝合上前，勺子碰了一下盘沿。"],
+  ],
+  "rain-meet": [
+    [narrator, "你在亮着的窗下找到她。她把伞推过来，自己的袖口很快湿了一截。"],
+    [player, "伞过来一点。你半边在雨里。"],
+    [bao, "你走里面。这里的地砖下雨会滑。"],
+    [narrator, "你把伞柄扶正，她手背碰到你的手指，没立刻抽走。两个人一起等迎面过来的人走远，才又往前。"],
+    [bao, "你真出来接我了。我的话写得那么绕。"],
+  ],
+  "rain-stay": [
+    [narrator, "你热好了两个杯子。门响的时候，她正把湿伞往里收，水沿着伞尖落进地毯。"],
+    [bao, "你留了两个。哪个是我的？"],
+    [player, "你摸摸看。左边那个杯耳凉一点，拿起来舒服。"],
+    [narrator, "她把两只杯子都摸过一遍，最后握住左边那只。"],
+    [bao, "原来有人等我进门，是这种感觉。"],
+  ],
+  "rain-date": [
+    [narrator, "打烊前，她又撑开伞。雨小了，她带你沿着亮窗走，踩着两块砖之间高起来的线。"],
+    [bao, "我上次走到这儿踩空了，鞋湿到第二天。你靠近点，我指给你看。"],
+    [player, "你一直记得哪块砖不好走。下回我撑伞，你带路。"],
+    [narrator, "到门口时，她把伞柄塞到你手里。雨顺着伞沿往下流，她抬起那截湿袖口，笑着看了一眼。"],
+    [bao, "行。下次真下雨，也算约好了。"],
+  ],
+  "cups-honest": [
+    [narrator, "她给你倒了半杯无糖的热牛奶，余下的加进自己的杯子。你尝到一股很淡的焦糖香。"],
+    [player, "你每晚都喝这个？"],
+    [bao, "以前会倒两杯。一杯放凉就倒掉。时间久了，我也忘了为什么总要倒两杯。"],
+    [narrator, "她喝了一口，像是终于确定这杯不会再放凉。"],
+  ],
+  "cups-sweet": [
+    [narrator, "她把蓝莓酱推到你手边，自己握着一把干净的小勺。你舀了满满一勺，果酱差点顺着边沿滴下来。"],
+    [bao, "这么多？那我那杯也照着来。"],
+    [player, "你喝甜一点的也可以吗？"],
+    [bao, "等喝到一半再决定。太甜的话，正好可以请你帮我喝一点。"],
+  ],
+  "cups-date": [
+    [narrator, "两只杯子不配套。一只有缺角，一只刚端上来太烫。你们换了一次杯子，谁也没把它换回来。"],
+    [bao, "缺角那只是我平常用的。你拿着会不会硌手？"],
+    [player, "把杯口转一下就好。你平时是不是也这么喝？"],
+    [narrator, "她看了看你握杯子的方向。过了一会儿，她从柜台底下拿出两把叉子，把第一把放到自己面前。"],
+    [bao, "我给你留大块留习惯了。今晚一人一边吧。"],
+    [player, "那你先选。"],
+    [narrator, "她挑了蓝莓稍多的那一边。刚吃一口，她把叉子放回盘里，抬起眼睛。"],
+    [bao, "明晚你也来好不好？我想让你看样东西。"],
+  ],
+  "sign-door": [
+    [narrator, "今天门牌挂反了。你推门进来，先看见背面有她的名字，下面留了一整行空白。"],
+    [player, "你昨晚就是在练这句话？"],
+    [bao, "一开始想说，来了就写一下。后来觉得你会以为我要登记客人。"],
+    [narrator, "她把笔递给你，另一只手扶住门牌，不让它转回正面。"],
+    [bao, "这面平时只有我看得见。我想把你的名字也写在这里。"],
+  ],
+  "sign-hand": [
+    [bao, "可以。等我把笔盖好。"],
+    [narrator, "笔帽扣上，响了一小声。她把空下来的手放进你掌心。那只手比杯耳还凉。"],
+    [player, "手这么凉，还站在门口等了多久？"],
+    [bao, "从听见楼道第一声门响开始。那次不是你。后来每次响，我都抬头。"],
+    [narrator, "她说完把手握紧了一点，等你回答。"],
+  ],
+  "sign-listen": [
+    [narrator, "你把笔递回去。她横着放到两个名字下面，抬起头，又低头把笔往右推正了一点。"],
+    [player, "我还在这儿。你慢慢说。"],
+    [bao, "我想了半天，还是直接说吧。我在等你来。昨晚是，今晚也是。"],
+    [narrator, "她把手从笔上拿开，安静地看着你。"],
+  ],
+  confession: [
+    [narrator, "街对面最后一扇窗还亮着。她搬来第二把椅子，在你旁边坐好。"],
+    [bao, "你下次来，就算我还没切蛋糕，也可以敲门。"],
+    [player, "你会给我开吗？"],
+    [bao, "会。你可以顺便告诉我，你希望我们下一次怎么见面。"],
+    [narrator, "她说完没再低头数蓝莓。桌上的两只杯子都还温着。"],
+  ],
+  "ending-together": [
+    [narrator, "你说完，林小包把自己的手覆在你手上。她等了两秒，确认你没有收走，才把指尖放平。"],
+    [bao, "好。那以后你来，可以先找我，再点蛋糕。"],
+    [player, "第一次约会想做什么？"],
+    [bao, "一起去买蓝莓。回来我教你怎么切方蛋糕。你要是切歪了，我吃大的那块。"],
+    [narrator, "她翻过门牌，在两个人的名字下面添了一行小字。"],
+    [bao, "「今天提前开门。」先写好，省得明天忘。"],
+  ],
+  "ending-promise": [
+    [bao, "好。下一个晴天，我想带你去买蓝莓。就我们两个。"],
+    [player, "到时候你发消息，我去你门口等。"],
+    [narrator, "她把纸条折了一下，夹进门牌背面。纸角露在外头，她伸手又往里面推了一点。"],
+    [bao, "今天就到这里。剩下的，我想等见面了再说。"],
+    [narrator, "出门前你回头看了一眼。柜台上的两只杯子已经被她摆在了一起。"],
+  ],
+};
+
+const catDialogue = {
+  arrive: [
+    [narrator, "蛋糕店外的走廊有点窄。你经过一张蓝沙发，脚步刚停，毯角就传来半声脆响。"],
+    [narrator, "靠垫后探出两只猫耳。有人踮起脚，把快从毯角滑落的浅蓝小鱼铃重新挂稳。"],
+  ],
+  "key-request": [
+    [cat, "先等等。红绳和蓝绳看起来很像，你别一把都拿走。"],
+    [player, "我找蓝绳那只。上次钥匙卡在锁里，鱼尾蹭出一道白划痕。"],
+    [narrator, "她从沙发背后拖出三只小碟，每只放一件。轮到自己的小鱼铃时，她特意把铃扣压在掌心。"],
+    [cat, "好，蓝绳、白划痕，两个条件。你自己看一遍，我在旁边核对。"],
+  ],
+  "key-found": [
+    [narrator, "她把那只钥匙扣推到毯边。蓝绳往下坠，她很快用一根手指勾住。"],
+    [cat, "你摸摸看，是不是这个？划痕在鱼尾里侧。"],
+    [player, "对。你怎么把我的和你的分出来的？"],
+    [cat, "我的尾巴是圆的。还有，摇一下只响半声。"],
+    [narrator, "她终于站起来，踮脚把铃举到你耳边。你还在等第二声，她先笑了。"],
+    [cat, "到这儿就没了。你要是再丢东西，就来听这一声。"],
+  ],
+  "ledger-together": [
+    [narrator, "她领你进登记室。台灯下摊着一本厚本子，每页都夹着窄纸条。桌子明明有两边，她把你的凳子放在自己这一侧。"],
+    [cat, "我写得有点乱。右边是描述，左边才是日期。"],
+    [player, "你可以边看边念。我帮你找对应的那一行。"],
+    [cat, "好。你要是听不清就叫我重念。我一个人写的时候，连说话都说得太快。"],
+  ],
+  "ledger-soon": [
+    [narrator, "登记室的灯还亮着。她站在书桌边，食指压着一行记录，另一只手把灯往你的方向转。"],
+    [cat, "你来了。我刚才查了两遍，还是看回同一行。"],
+    [player, "你查日期，我查封口。两个人不用都盯着同一处。"],
+    [cat, "行。查完以后先别走。刚才说到一半，我还没告诉你我为什么记得这只信封。"],
+  ],
+  "ledger-clue": [
+    [narrator, "她把抽屉里的三只信封排成一行，把灯臂往前掰了一点。"],
+    [cat, "这次找的是封口贴蓝纸、左下角折成三角的信封。对方说折痕是自己留下的。"],
+    [player, "有两只都是蓝封口。"],
+    [cat, "所以先把信封按正常方向放好再认左右。你选，我帮你核对。"],
+  ],
+  "ledger-found": [
+    [narrator, "她站在小书桌边，把你找到的两条线索一笔一画补进本子。写到折角时，笔尖停下来，顺着纸边画了个小三角。"],
+    [player, "你平时都画得这么仔细？"],
+    [cat, "上次有人说左边，我记成他的左边。害他来回跑了两趟。后来就都画下来。"],
+    [narrator, "你把桌边最亮的位置让给她。她写完，才发现你的手一直扶着本子另一头。"],
+    [cat, "这里留给你签字。今晚是我们一起找到的。"],
+  ],
+  "bell-stay": [
+    [narrator, "她把小鱼铃从毯角解下来，拢在掌心。平时随便拨一下就会响的铃，这回被她握得很稳。"],
+    [cat, "我知道应该还。刚才试着把它放进待领取的抽屉，关上又打开了。"],
+    [player, "你想亲手交给他？"],
+    [cat, "想。你就在我旁边，等我把话讲完。"],
+  ],
+  "bell-door": [
+    [narrator, "你把来人领到走廊拐角。她把铃装在布垫上，端着它往前走了几步。"],
+    [cat, "我核对完就交给他。你先帮我扶着门，等一下我想和你说句话。"],
+    [player, "好。门口有灯，我就在那儿。"],
+  ],
+  "bell-owner": [
+    [cat, "鱼尾缺漆在哪一面？你先说，我再翻给你看。"],
+    [owner, "背面靠右。那块蓝漆掉了以后，底下有一道白。摇起来只响半声。"],
+    [narrator, "她翻过铃，指尖停在那道白痕上，然后把它放到来人手里。"],
+    [owner, "就是它。原来这几天我来找钥匙，叫你的也是这个。留在你这儿吧。下次来，我还照这个叫。"],
+    [narrator, "他把小鱼铃重新系到毯角。她用指尖试了一下结，回头先看你在不在。"],
+    [cat, "在呢。你还在。那我再摇一下给你听。"],
+  ],
+  "bell-promise": [
+    [narrator, "最后一扇窗开始往里合。她把铃往毯子外挪了一点，捏着绳子来回试长短。"],
+    [player, "你这样挂，进门的人都够得到。"],
+    [cat, "我是照你伸手的高度挂的。"],
+    [narrator, "她说完才意识到你正看着她，手指停在绳结上。"],
+    [cat, "你明晚……没有丢东西也会来吗？"],
+  ],
+  "ending-visit": [
+    [narrator, "她低头找了一张空白认领单，翻到背面，在你面前写下「明晚见」。"],
+    [player, "你这次没写要认领什么。"],
+    [cat, "这次只登记你要来。明晚我把铃放低一点，你一伸手就摸得到。"],
+    [narrator, "她踮脚给你比了一下高度，又把铃扣往下放了一格。"],
+  ],
+  "ending-note": [
+    [cat, "那我把单子压在这儿。你路过的时候，摇铃就行。"],
+    [player, "不用登记时间？"],
+    [cat, "你又没说几点。等下次见面，我们再一起写。"],
+    [narrator, "你走到走廊另一头，回头看见她把桌灯朝门口拨了一点。"],
+  ],
+  "repair-bell": [
+    [narrator, "她把灯压低。两个人的影子都落在一本合起来的登记簿上。鱼铃的金属环开了缝，铃舌还稳稳地垂着。"],
+    [cat, "我试过重新换个铃舌，声音太亮，站到走廊另一头都听得到。换回来了。"],
+    [player, "那就保留现在的声音。"],
+    [cat, "嗯。松的是挂环。钳子给你，我扶住小鱼。"],
+  ],
+  "check-bell": [
+    [narrator, "你夹紧挂环。她把小鱼举到耳边轻轻摇，听完一遍，又把它放回你掌心。"],
+    [cat, "你也听听，还是原来那半声。"],
+    [player, "是。你刚才扶得比我还稳。"],
+    [narrator, "她低头把小钳子放回盒子，盖子合到一半，没再往下压。"],
+    [cat, "修好了。你还可以再待一会儿吗？"],
+  ],
+  "label-bell": [
+    [narrator, "她把「待认领」的旧标签撕下来。纸背上粘着几根毛毯的细线，她一根根拈掉。"],
+    [cat, "主人把它给我了。我还照着旧规矩贴，好像每天都在等他来拿。"],
+    [player, "那写个新的。你想让人看到什么？"],
+    [cat, "我在想写它现在是做什么的，还是写它现在归谁。你选一个给我听听。"],
+  ],
+  "after-hours": [
+    [narrator, "她把值班表收进抽屉。你这才发现，桌上留下的那片空地，刚好能放下你的手和她摊开的本子。"],
+    [player, "今天没有别人来认领？"],
+    [cat, "该来的人都来过了。我在关门前，把桌子又擦了一遍。"],
+    [player, "那我还需要登记吗？"],
+    [cat, "不用。今晚我想见你，所以才叫你来。"],
+    [narrator, "她说得很快，手却伸到台灯下，把亮度一格一格调高，直到你能看清她的眼睛。"],
+  ],
+  "first-found": [
+    [narrator, "她翻出最早的登记簿。书脊已经磨白，第一页只有一行，末尾有一小块被擦薄的纸。"],
+    [cat, "浅蓝鱼铃，尾尖缺漆，摇一下响半声。原来我还写了「今晚应该有人回来」。"],
+    [player, "你当时等到几点？"],
+    [cat, "窗关了才回去。第二天还是挂回原处。后来慢慢有人过来摇铃，只是找的都是别的东西。"],
+    [narrator, "她把本子合上。鱼铃压在纸角上，她伸手绕过它，从下面抽出一张新的认领单。"],
+  ],
+  "blank-request": [
+    [narrator, "台灯照着纸背。她把纸转向你，左手按住边角，右手还攥着没拔盖的笔。"],
+    [cat, "我以前听见响，就想这次又掉了什么。上次你在门口摇了一下，我先想的是，你来了吗。"],
+    [player, "你刚才把这张纸拿出来，是想记什么？"],
+    [narrator, "她用拇指推了两次笔帽，第二次才推开。笔尖在纸上点出一个墨点。"],
+    [cat, "我想约你下次见面。先让我写名字，再给你留一条空格。可以吗？"],
+  ],
+  "blank-written": [
+    [narrator, "她写完自己的名字，把剩下那半条线留给你。你写最后一笔时，她用指尖压住被你带歪的纸。"],
+    [cat, "两个人的名字挨这么近，原来只要一行。"],
+    [player, "现在可以给我了吗？"],
+    [cat, "明晚再给。名字已经写好了，交的时候我想自己来。"],
+  ],
+  "blank-listen": [
+    [narrator, "你把手放到桌边，等她慢慢把笔移到纸的另一边。屋里只听得见笔尖刮过纸面的轻响。"],
+    [cat, "我写你的名字了。旁边也写了时间，晚半小时也可以。"],
+    [player, "我会提前来一点。你按自己的时间准备。"],
+    [cat, "好。那张单我想明天亲手交给你。"],
+  ],
+  "receipt-ring": [
+    [narrator, "你摇了一下鱼铃。半声刚落，里间就传来椅脚擦过地板的声音。"],
+    [cat, "我听到了。你每次只摇一下，摇完还会等一小会儿。"],
+    [player, "你现在连我怎么摇都记得？"],
+    [cat, "记得。今天我还特地没坐太远。"],
+    [narrator, "她把纸从围裙口袋拿出来。折过的纸角贴着掌心，她低头理平，才朝你伸手。"],
+    [cat, "这张给你。"],
+  ],
+  "receipt-knock": [
+    [narrator, "你轻轻敲门。她在里面先应了一声，过了一会儿才把门拉开。手里的纸角有点皱。"],
+    [player, "我到了。你还在准备吗？"],
+    [cat, "刚刚在想第一句话要说什么。你一敲门，我就只记得应该去开门了。"],
+    [narrator, "她笑了一下，用两根手指把纸角理顺，再递给你。"],
+    [cat, "这张给你。"],
+  ],
+  "receipt-answer": ({ choices }) => [
+    [narrator, "你接住回执。她还扶着另一边，好一会儿才松手。柜台的小灯落在纸上，把笔迹照得很清楚。"],
+    [narrator, {
+      write: "你们的名字并排。她在下面补了「下次见面」，时间那一栏还空着。",
+      listen: "回执背面，是她昨晚替你写好的名字和时间。她用手指在时间下面点了一下。",
+    }[choices.fifth] ?? "回执背面有你们的名字。她用手指点了点下面那一行。"],
+    [cat, "你想什么时候来？可以写一个我们都舒服的时间。"],
+    [player, "时间我可以写。还有件事，我想先当面跟你说。"],
+    [narrator, "她往你面前挪了一点，把笔放下，两手都空着等你开口。"],
+  ],
+  "ending-space": [
+    [narrator, "你说喜欢她。她把小鱼铃放到桌上，鱼尾轻轻碰了下木头。"],
+    [cat, "我也是。下次见面，我们就当作约会吧。"],
+    [player, "那你想做什么？我可以陪你整理抽屉，也可以陪你出去走走。"],
+    [cat, "先出去走走。招领簿放在店里。到时候我想牵你的手，可以吗？"],
+    [narrator, "你点头。她拿起笔，把回执上的「待领取」划掉，慢慢写下「已约好」。"],
+    [cat, "这一格给你。你回去的时候，别又把纸掉到沙发底下。"],
+  ],
+  "ending-wait": [
+    [narrator, "她听完，低头看了眼回执，没有去擦掉上面的名字。"],
+    [cat, "好。那我们先约明晚。到时候你想说什么，都可以慢一点说。"],
+    [player, "你会在门口吗？"],
+    [cat, "会。我给你留那盏靠门的灯。"],
+    [narrator, "她把回执沿空白的一栏折起来。走廊暗了半截，她陪你走到拐角，才抬起手朝你挥了挥。"],
+    [cat, "等你来取。回执可以留着，下次还用得上。"],
+  ],
+};
 
 
 const chapters = [
@@ -914,7 +1315,7 @@ const choiceValues = {
   fourth: ["meet", "stay"], fifth: ["honest", "sweet"], sixth: ["hand", "listen"],
 };
 
-const baoStory = makeStory({ chapters, endings, memories, letters, scenes, choiceValues });
+const baoStory = makeStory({ chapters, endings, memories, letters, scenes, choiceValues, dialogue: baoDialogue });
 
 
 const catStory = (() => {
@@ -1130,7 +1531,7 @@ const catStory = (() => {
     "ending-wait": entry(5, "旁白", endings.wait.line, next("从第一夜重玩", "arrive"), { ...endings.wait, ending: "wait", lights: 0 }),
   };
   return makeStory({
-    chapters, endings, memories, letters, scenes,
+    chapters, endings, memories, letters, scenes, dialogue: catDialogue,
     choiceValues: {
       second: ["together", "soon"], third: ["stay", "door"], fourth: ["repair", "label"],
       fifth: ["write", "listen"], sixth: ["ring", "knock"],
@@ -1370,6 +1771,19 @@ function renderLetters(route, state, scene) {
   return entries.length ? entries : [node("p", "empty-state", route.emptyMail)];
 }
 
+function replayButton(route, state, sceneId, title, label) {
+  return button(label, () => {
+    const turns = route.story.dialogueFor({ ...state, node: sceneId });
+    const transcript = node("div", "replay-transcript");
+    for (const turn of turns) {
+      const entry = node("div", "replay-entry");
+      entry.append(node("strong", "", turn.speaker), node("p", "replay", turn.line));
+      transcript.append(entry);
+    }
+    openModal(title, transcript);
+  }, "replay-button");
+}
+
 function renderJournal(route, state) {
   const dates = Object.entries(route.story.memories).map(([id, memory]) => {
     if (!state.memories.includes(id)) return node("p", "memory locked", `${memory.title} · 待解锁`);
@@ -1377,16 +1791,14 @@ function renderJournal(route, state) {
     entry.append(node("summary", "", memory.title));
     if (memory.art) entry.append(artCard(memory.art, memory.title));
     entry.append(node("p", "", memory.line));
-    const clip = route.story.sceneFor({ ...state, node: route.clips[id] });
-    entry.append(button("重看片段", () => {
-      openModal(memory.title, node("p", "replay", clip.line));
-    }, "replay-button"));
+    entry.append(replayButton(route, state, route.clips[id], memory.title, "重看片段"));
     return entry;
   });
   const endings = Object.entries(route.story.endings).map(([id, ending], index) => {
     if (!state.unlocked.includes(id)) return node("p", "memory locked", `结局 ${index + 1} · 待解锁`);
     const entry = node("details", "memory");
-    entry.append(node("summary", "", ending.title), node("p", "", ending.line));
+    entry.append(node("summary", "", ending.title), node("p", "", ending.line),
+      replayButton(route, state, `ending-${id}`, ending.title, "重看结局"));
     return entry;
   });
   return [node("h3", "modal-section", "相遇与约会"), ...dates, node("h3", "modal-section", "故事结局"), ...endings];
@@ -1476,6 +1888,11 @@ get("restart").addEventListener("click", () => {
 
 document.addEventListener("keydown", (event) => {
   if (view !== "story" || modal.open || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+  if (event.target === storyText && actions.children.length === 1 && ["Enter", " "].includes(event.key)) {
+    event.preventDefault();
+    advance(0);
+    return;
+  }
   const index = Number(event.key) - 1;
   if (actions.children.length > 1 && /^[1-3]$/.test(event.key) && index < actions.children.length) {
     event.preventDefault();
