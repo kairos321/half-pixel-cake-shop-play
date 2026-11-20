@@ -6,16 +6,16 @@
   <meta name="theme-color" content="#181321">
   <meta name="description" content="深夜，你推开一扇藏在屏幕缝里的门。到蛋糕店见林小包，去招领处找林小猫，也可以去棕榈温室陪林小芽等雨停。">
   <title>半格蛋糕店</title>
-  <link rel="icon" href="./releases/59d6e29d6cb1f9da/assets/cake.webp" type="image/webp">
-  <link rel="preload" href="./releases/59d6e29d6cb1f9da/assets/shop.webp" as="image">
-  <link rel="stylesheet" href="./releases/59d6e29d6cb1f9da/style.css">
-  <script defer src="./releases/59d6e29d6cb1f9da/game.js"></script>
+  <link rel="icon" href="./releases/91aead0266373690/assets/cake.webp" type="image/webp">
+  <link rel="preload" href="./releases/91aead0266373690/assets/shop.webp" as="image">
+  <link rel="stylesheet" href="./releases/91aead0266373690/style.css">
+  <script defer src="./releases/91aead0266373690/game.js"></script>
 </head>
 <body>
   <header class="site-header">
     <div class="shell header-content">
       <a class="brand" href="./" aria-label="半格蛋糕店首页" id="home-link">
-        <span class="brand-mark"><img src="./releases/59d6e29d6cb1f9da/assets/cake.webp" alt="" width="37" height="37"></span>
+        <span class="brand-mark"><img src="./releases/91aead0266373690/assets/cake.webp" alt="" width="37" height="37"></span>
         <span>半格蛋糕店</span>
       </a>
       <div class="route-picker" id="routes" role="group" aria-label="切换剧情路线"></div>
@@ -30,7 +30,7 @@
 
     <div class="game-layout">
       <section class="scene" id="scene" aria-label="半格蛋糕店内的场景">
-        <img class="scene-background" id="scene-art" src="./releases/59d6e29d6cb1f9da/assets/shop.webp" alt="" width="1536" height="1024" fetchpriority="high">
+        <img class="scene-background" id="scene-art" src="./releases/91aead0266373690/assets/shop.webp" alt="" width="1536" height="1024" fetchpriority="high">
         <div class="scene-shade"></div>
         <div class="scene-status">
           <span class="shop-status"><span class="status-light" aria-hidden="true"></span><span id="shop-state">夜间营业</span></span>
@@ -39,9 +39,9 @@
             <span class="window-icon lit" aria-hidden="true"></span>
           </span>
         </div>
-        <img class="character" id="character" src="./releases/59d6e29d6cb1f9da/assets/lin-welcome.webp" alt="抱着蓝莓蛋糕的林小包" width="512" height="512">
+        <img class="character" id="character" src="./releases/91aead0266373690/assets/lin-welcome.webp" alt="抱着蓝莓蛋糕的林小包" width="512" height="512">
         <div class="cake-moment" id="cake-moment" hidden>
-          <img src="./releases/59d6e29d6cb1f9da/assets/cake.webp" alt="放在牛皮纸上的蓝莓奶油蛋糕" width="570" height="570">
+          <img src="./releases/91aead0266373690/assets/cake.webp" alt="放在牛皮纸上的蓝莓奶油蛋糕" width="570" height="570">
           <span class="cake-berry" id="cake-berry" aria-hidden="true"></span>
         </div>
         <div class="scene-caption"><span class="caption-pin" aria-hidden="true"></span> <span id="scene-location">屏幕下沿 · 半格蛋糕店</span></div>
@@ -80,20 +80,24 @@
         <div id="library-content" class="library-content"></div>
       </section>
     </div>
-    <nav class="game-nav" id="game-nav" aria-label="游戏导航">
-      <button type="button" data-view="home"><span aria-hidden="true">◈</span> 相伴</button>
-      <button type="button" data-view="story"><span aria-hidden="true">▤</span> 剧情</button>
-      <button type="button" data-view="letters"><span aria-hidden="true">✉</span> 私信 <small id="letter-count" hidden></small></button>
-      <button type="button" data-view="journal"><span aria-hidden="true">✦</span> 回忆 <small id="journal-count" hidden></small></button>
-    </nav>
+    <div class="game-controls">
+      <nav class="game-nav" id="game-nav" aria-label="游戏导航">
+        <button type="button" data-view="home"><span aria-hidden="true">◈</span> 相伴</button>
+        <button type="button" data-view="story"><span aria-hidden="true">▤</span> 剧情</button>
+        <button type="button" data-view="letters"><span aria-hidden="true">✉</span> 私信 <small id="letter-count" hidden></small></button>
+        <button type="button" data-view="journal"><span aria-hidden="true">✦</span> 回忆 <small id="journal-count" hidden></small></button>
+      </nav>
+      <div class="chapter-controls" role="group" aria-label="章节控制">
+        <button type="button" class="quiet-button" id="chapters">选章节</button>
+        <button type="button" class="quiet-button" id="restart">从头开始</button>
+        <button type="button" class="quiet-button" id="exit-replay" hidden>回到主线</button>
+      </div>
+    </div>
     <footer class="game-footer">
       <p id="save-status"><span class="save-dot" aria-hidden="true"></span> 剧情进度保存在当前浏览器</p>
       <div>
         <button type="button" class="quiet-button" id="sound-toggle">开启音效</button>
-        <button type="button" class="quiet-button" id="chapters">章节回溯</button>
         <button type="button" class="quiet-button" id="about">夜街规矩</button>
-        <button type="button" class="quiet-button" id="restart" hidden>从头开始</button>
-        <button type="button" class="quiet-button" id="exit-replay" hidden>退出回溯</button>
       </div>
     </footer>
   </main>
