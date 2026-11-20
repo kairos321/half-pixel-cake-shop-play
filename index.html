@@ -6,16 +6,16 @@
   <meta name="theme-color" content="#181321">
   <meta name="description" content="深夜，你推开一扇藏在屏幕缝里的门。到蛋糕店见林小包，去招领处找林小猫，也可以去棕榈温室陪林小芽等雨停。">
   <title>半格蛋糕店</title>
-  <link rel="icon" href="./releases/91aead0266373690/assets/cake.webp" type="image/webp">
-  <link rel="preload" href="./releases/91aead0266373690/assets/shop.webp" as="image">
-  <link rel="stylesheet" href="./releases/91aead0266373690/style.css">
-  <script defer src="./releases/91aead0266373690/game.js"></script>
+  <link rel="icon" href="./releases/b8969fab70ac7d93/assets/cake.webp" type="image/webp">
+  <link rel="preload" href="./releases/b8969fab70ac7d93/assets/shop.webp" as="image">
+  <link rel="stylesheet" href="./releases/b8969fab70ac7d93/style.css">
+  <script defer src="./releases/b8969fab70ac7d93/game.js"></script>
 </head>
 <body>
   <header class="site-header">
     <div class="shell header-content">
       <a class="brand" href="./" aria-label="半格蛋糕店首页" id="home-link">
-        <span class="brand-mark"><img src="./releases/91aead0266373690/assets/cake.webp" alt="" width="37" height="37"></span>
+        <span class="brand-mark"><img src="./releases/b8969fab70ac7d93/assets/cake.webp" alt="" width="37" height="37"></span>
         <span>半格蛋糕店</span>
       </a>
       <div class="route-picker" id="routes" role="group" aria-label="切换剧情路线"></div>
@@ -26,11 +26,12 @@
     <header class="intro">
       <h1>半格蛋糕店</h1>
       <p class="subtitle">今晚，想去见谁？也可以和她们一起逛夜街。</p>
+      <div class="event-picker" id="event-picker" role="group" aria-label="选择双人事件" hidden></div>
     </header>
 
     <div class="game-layout">
       <section class="scene" id="scene" aria-label="半格蛋糕店内的场景">
-        <img class="scene-background" id="scene-art" src="./releases/91aead0266373690/assets/shop.webp" alt="" width="1536" height="1024" fetchpriority="high">
+        <img class="scene-background" id="scene-art" src="./releases/b8969fab70ac7d93/assets/shop.webp" alt="" width="1536" height="1024" fetchpriority="high">
         <div class="scene-shade"></div>
         <div class="scene-status">
           <span class="shop-status"><span class="status-light" aria-hidden="true"></span><span id="shop-state">夜间营业</span></span>
@@ -39,9 +40,10 @@
             <span class="window-icon lit" aria-hidden="true"></span>
           </span>
         </div>
-        <img class="character" id="character" src="./releases/91aead0266373690/assets/lin-welcome.webp" alt="抱着蓝莓蛋糕的林小包" width="512" height="512">
+        <img class="character" id="character" src="./releases/b8969fab70ac7d93/assets/lin-welcome.webp" alt="抱着蓝莓蛋糕的林小包" width="512" height="512">
+        <img class="character partner" id="partner" alt="" width="512" height="512" hidden>
         <div class="cake-moment" id="cake-moment" hidden>
-          <img src="./releases/91aead0266373690/assets/cake.webp" alt="放在牛皮纸上的蓝莓奶油蛋糕" width="570" height="570">
+          <img src="./releases/b8969fab70ac7d93/assets/cake.webp" alt="放在牛皮纸上的蓝莓奶油蛋糕" width="570" height="570">
           <span class="cake-berry" id="cake-berry" aria-hidden="true"></span>
         </div>
         <div class="scene-caption"><span class="caption-pin" aria-hidden="true"></span> <span id="scene-location">屏幕下沿 · 半格蛋糕店</span></div>
